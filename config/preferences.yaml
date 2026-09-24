@@ -1,0 +1,317 @@
+# ============================================================
+# AI JOB OPPORTUNITY AGENT
+# User Job Search Preferences
+# ============================================================
+
+candidate:
+  education:
+    degree: "B.Tech"
+    specialization:
+      - "Computer Science"
+      - "Data Science"
+
+  experience:
+    preferred:
+      - "fresher"
+      - "graduate"
+      - "trainee"
+      - "0-1 years"
+      - "0-2 years"
+
+  employment_types:
+    - "full-time"
+    - "internship"
+    - "internship-to-full-time"
+    - "graduate trainee"
+
+# ------------------------------------------------------------
+# TARGET ROLES
+# ------------------------------------------------------------
+
+roles:
+
+  ai_ml:
+    - "AI/ML Engineer"
+    - "AI Engineer"
+    - "Machine Learning Engineer"
+    - "ML Engineer"
+    - "Data Scientist"
+    - "Applied AI Engineer"
+    - "AI Research Engineer"
+
+  genai:
+    - "Generative AI Engineer"
+    - "GenAI Engineer"
+    - "LLM Engineer"
+    - "AI Engineer"
+    - "Agentic AI Engineer"
+    - "AI Automation Engineer"
+    - "RAG Engineer"
+
+  backend:
+    - "AI Backend Engineer"
+    - "Python Backend Engineer"
+    - "Python Developer"
+    - "Python SDE"
+    - "Backend Engineer"
+    - "FastAPI Developer"
+
+  data:
+    - "Data Analyst"
+    - "BI Analyst"
+    - "Business Intelligence Analyst"
+    - "Data Science Analyst"
+
+  business_analysis:
+    - "Business Analyst"
+    - "Business Data Analyst"
+    - "Technical Business Analyst"
+    - "Business Intelligence Analyst"
+    - "Product Analyst"
+    - "Analytics Analyst"
+
+# ------------------------------------------------------------
+# LOCATION PRIORITY
+# Lower number = higher priority
+# ------------------------------------------------------------
+
+locations:
+
+  priority:
+    1:
+      - "Noida"
+      - "Greater Noida"
+
+    2:
+      - "New Delhi"
+      - "Delhi"
+
+    3:
+      - "Gurugram"
+      - "Gurgaon"
+
+    4:
+      - "Bangalore"
+      - "Bengaluru"
+
+    5:
+      - "Jaipur"
+
+    6:
+      - "Pune"
+
+    7:
+      - "Mumbai"
+      - "Navi Mumbai"
+
+  remote:
+    - "Remote India"
+    - "India Remote"
+    - "Remote"
+
+  include_other_locations: true
+
+  other_location_rule:
+    only_if_match_is_strong: true
+
+# ------------------------------------------------------------
+# TECHNICAL SKILLS
+# ------------------------------------------------------------
+
+skills:
+
+  programming:
+    - "Python"
+    - "C++"
+    - "SQL"
+
+  backend:
+    - "FastAPI"
+    - "Flask"
+    - "REST API"
+    - "REST APIs"
+    - "AsyncIO"
+    - "SQLAlchemy"
+
+  databases:
+    - "PostgreSQL"
+    - "MySQL"
+    - "SQLite"
+    - "Vector Database"
+    - "FAISS"
+
+  infrastructure:
+    - "Docker"
+    - "Git"
+    - "GitHub"
+
+  ai_ml:
+    - "Machine Learning"
+    - "Deep Learning"
+    - "scikit-learn"
+    - "Pandas"
+    - "NumPy"
+    - "TensorFlow"
+    - "PyTorch"
+
+  genai:
+    - "LLM"
+    - "LLMs"
+    - "Generative AI"
+    - "GenAI"
+    - "LangChain"
+    - "LangGraph"
+    - "RAG"
+    - "Retrieval Augmented Generation"
+    - "Multi-Agent"
+    - "Agentic AI"
+    - "AI Agents"
+    - "Prompt Engineering"
+    - "Vector Database"
+
+  other:
+    - "NLP"
+    - "Computer Vision"
+    - "OCR"
+    - "Forecasting"
+    - "Model Evaluation"
+    - "AI Automation"
+    - "Validation"
+    - "Testing"
+
+# ------------------------------------------------------------
+# BUSINESS ANALYST SPECIALIZATION
+# ------------------------------------------------------------
+
+business_analyst_preferences:
+
+  preferred_skills:
+    - "SQL"
+    - "Python"
+    - "Data Analysis"
+    - "Business Intelligence"
+    - "Power BI"
+    - "Tableau"
+    - "Excel"
+    - "Analytics"
+    - "Product Analytics"
+    - "Requirements Analysis"
+
+  exclude_if_only_generic_sales_role: true
+
+# ------------------------------------------------------------
+# SOURCES
+# ------------------------------------------------------------
+
+sources:
+
+  preferred:
+    - "official_company_careers"
+    - "LinkedIn"
+    - "Wellfound"
+    - "YC Jobs"
+    - "Cutshort"
+    - "Indeed"
+    - "Unstop"
+    - "Internshala"
+    - "Naukri"
+    - "Foundit"
+
+  prioritize_official_application: true
+
+# ------------------------------------------------------------
+# FRESHNESS
+# ------------------------------------------------------------
+
+freshness:
+
+  preferred_age_days: 3
+  maximum_age_days: 14
+
+  include_older_if:
+    - "still accepting applications"
+    - "strong skill match"
+    - "high location priority"
+
+  exclude:
+    - "closed"
+    - "expired"
+    - "deadline passed"
+
+# ------------------------------------------------------------
+# MATCHING
+# ------------------------------------------------------------
+
+matching:
+
+  minimum_score_to_include: 55
+
+  strong_match_threshold: 80
+
+  very_strong_match_threshold: 90
+
+  factors:
+
+    role_match: 30
+    skill_match: 30
+    location_match: 20
+    experience_match: 10
+    freshness: 10
+
+# ------------------------------------------------------------
+# REPORT
+# ------------------------------------------------------------
+
+report:
+
+  sections:
+    - "apply_today"
+    - "new_today"
+    - "fresh_active"
+    - "remote_india"
+    - "business_analyst"
+    - "other_strong_matches"
+
+  include:
+    - "company"
+    - "role"
+    - "location"
+    - "work_mode"
+    - "experience"
+    - "eligibility"
+    - "compensation"
+    - "posting_date"
+    - "freshness"
+    - "source"
+    - "application_url"
+    - "official_careers_url"
+    - "recruiter_contact"
+    - "match_score"
+    - "match_reason"
+    - "deadline"
+
+# ------------------------------------------------------------
+# EMAIL
+# ------------------------------------------------------------
+
+email:
+
+  recipient: "lakshyadogra05@gmail.com"
+
+  send_time_ist: "10:00"
+
+  subject_prefix: "🚀 Daily Job Opportunities"
+
+  attach_excel: true
+
+# ------------------------------------------------------------
+# SAFETY / DATA QUALITY
+# ------------------------------------------------------------
+
+data_quality:
+
+  never_fabricate_hr_contact: true
+  never_guess_application_url: true
+  prefer_official_source: true
+  deduplicate_jobs: true
+  preserve_source_url: true

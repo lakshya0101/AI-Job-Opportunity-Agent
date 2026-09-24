@@ -17,6 +17,7 @@ from src.reporting.report_builder import build_report
 from src.reporting.templates import render_daily_report
 from src.storage.change_detector import detect_changes
 from src.storage.job_store import JobStore
+from src.collectors.official_careers import collect as collect_official_careers
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -61,7 +62,19 @@ def main():
     print("[1/10] Running collectors...")
 
     # Collectors will be added here progressively.
-    collectors = []
+    company_boards = preferences.get(
+        "sources",
+        {},
+    ).get(
+        "company_boards",
+        [],
+    )
+
+    collectors = [
+        lambda: collect_official_careers(
+            company_boards
+        )
+    ]
 
     raw_jobs = run_collectors(
         collectors
@@ -128,8 +141,19 @@ def main():
 
     print("[8/10] Filtering...")
 
+    minimum_score = preferences.get(
+        "matching",
+        {},
+    ).get(
+        "minimum_score_to_include",
+        55,
+    )
+    
     filtered_jobs = filter_jobs(
-        matched_jobs
+        matched_jobs,
+        minimum_score=float(
+            minimum_score
+        ),
     )
 
     print(

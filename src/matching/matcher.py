@@ -171,8 +171,14 @@ def score_experience_match(
     preferred_experience: Iterable[str],
 ) -> float:
     """
-    Score fresher/graduate/trainee compatibility out of 10.
+    Score compatibility with a fresher / 0-2 year candidate.
+
+    Seniority in the title is treated as a strong signal.
+    Explicit experience requirements in the job text override
+    ambiguous cases.
     """
+
+    title = normalize_text(job.title)
 
     text = normalize_text(
         " ".join(
@@ -185,9 +191,41 @@ def score_experience_match(
         )
     )
 
-    if not text:
-        return 4.0
+    # Strong seniority indicators.
+    senior_titles = [
+        "senior",
+        "sr ",
+        "lead",
+        "principal",
+        "staff",
+        "manager",
+        "director",
+        "head",
+        "architect",
+    ]
 
+    for term in senior_titles:
+        if contains_term(title, term):
+            # Only recover if the actual job explicitly accepts
+            # fresher / entry-level candidates.
+            entry_terms = [
+                "fresher",
+                "freshers",
+                "entry level",
+                "entry-level",
+                "graduate",
+                "trainee",
+                "0 1 year",
+                "0 2 years",
+                "0 2 year",
+            ]
+
+            if any(contains_term(text, term) for term in entry_terms):
+                return 6.0
+
+            return 0.0
+
+    # Explicit entry-level signals.
     strong_terms = [
         "fresher",
         "freshers",
@@ -206,18 +244,12 @@ def score_experience_match(
         if contains_term(text, term):
             return 10.0
 
-    # If the configured experience preference appears,
-    # give partial credit.
-    for term in preferred_experience:
-        if contains_term(text, term):
-            return 9.0
-
-    # Explicitly experienced roles should score lower.
+    # Explicitly experienced roles.
     if re.search(r"\b[3-9]\+?\s*years?\b", text):
         return 2.0
 
-    return 6.0
-
+    # Unknown experience.
+    return 5.0
 
 def score_freshness(job: Job) -> float:
     """

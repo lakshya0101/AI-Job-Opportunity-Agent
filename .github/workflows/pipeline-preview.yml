@@ -31,7 +31,11 @@ jobs:
           from src.collectors.official_careers import collect as collect_official_careers
           from src.processing.normalizer import normalize_job
           from src.processing.deduplicator import deduplicate_jobs
-          from src.processing.freshness import process_freshness
+          from src.processing.freshness import (
+              process_freshness,
+              is_reportable,
+              classify_freshness,
+          )
           from src.matching.matcher import calculate_match
           from src.processing.filter import filter_jobs
 

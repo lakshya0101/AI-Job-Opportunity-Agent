@@ -395,6 +395,6 @@ def calculate_match(
     if freshness_score >= 10:
         reasons.append("fresh or urgent")
     
-        job.match_reason = "; ".join(reasons)
+    job.match_reason = "; ".join(reasons)
     
-        return job
+    return job

@@ -3,13 +3,13 @@ from typing import Iterable, List
 from src.models.job import Job
 
 
-DEFAULT_MIN_MATCH_SCORE = 60.0
+DEFAULT_MIN_MATCH_SCORE = 55.0
 
 
 def is_expired(job: Job) -> bool:
     """Return True when the job has been classified as expired."""
 
-    return not job.is_new and job.deadline == "EXPIRED"
+    return job.deadline == "EXPIRED"
 
 
 def should_include(
@@ -36,10 +36,8 @@ def filter_jobs(
 ) -> List[Job]:
     """Filter jobs using score, expiry, and application-link rules."""
 
-    filtered = []
-
-    for job in jobs:
-        if should_include(job, minimum_score):
-            filtered.append(job)
-
-    return filtered
+    return [
+        job
+        for job in jobs
+        if should_include(job, minimum_score)
+    ]

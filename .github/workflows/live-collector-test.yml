@@ -1,0 +1,59 @@
+name: Live Collector Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run live company collector
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          import yaml
+
+          from src.collectors.official_careers import collect
+
+          with open("config/preferences.yaml", "r", encoding="utf-8") as f:
+              preferences = yaml.safe_load(f)
+
+          companies = preferences.get("sources", {}).get("company_boards", [])
+
+          print("=" * 70)
+          print("LIVE COMPANY CAREER COLLECTOR TEST")
+          print("=" * 70)
+          print(f"Configured companies: {len(companies)}")
+          print()
+
+          jobs = collect(companies)
+
+          print(f"Jobs collected: {len(jobs)}")
+          print()
+
+          for i, job in enumerate(jobs, 1):
+              print(f"[{i}] {job.get('company')}")
+              print(f"    Title: {job.get('title')}")
+              print(f"    Location: {job.get('location')}")
+              print(f"    Source: {job.get('source')}")
+              print(f"    Application: {job.get('application_url')}")
+              print()
+
+          print("=" * 70)
+          print("LIVE COLLECTOR TEST COMPLETE")
+          print("=" * 70)
+          PY

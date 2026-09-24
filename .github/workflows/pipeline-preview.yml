@@ -29,10 +29,10 @@ jobs:
           import yaml
 
           from src.collectors.official_careers import collect as collect_official_careers
-          from src.processing.normalizer import normalize_jobs
+          from src.processing.normalizer import normalize_job
           from src.processing.deduplicator import deduplicate_jobs
           from src.processing.freshness import process_freshness
-          from src.matching.matcher import match_jobs
+          from src.matching.matcher import calculate_match
           from src.processing.filter import filter_jobs
 
           print("=" * 80)
@@ -54,8 +54,11 @@ jobs:
 
           print(f"Raw jobs collected: {len(raw_jobs)}")
 
-          jobs = normalize_jobs(raw_jobs)
-
+          jobs = [
+              normalize_job(raw_job)
+              for raw_job in raw_jobs
+          ]
+          
           print(f"After normalization: {len(jobs)}")
 
           jobs = deduplicate_jobs(jobs)
@@ -64,10 +67,13 @@ jobs:
 
           jobs = process_freshness(jobs)
 
-          jobs = match_jobs(
-              jobs,
-              preferences,
-          )
+          jobs = [
+              calculate_match(
+                  job,
+                  preferences,
+              )
+              for job in jobs
+          ]
 
           minimum_score = float(
               preferences

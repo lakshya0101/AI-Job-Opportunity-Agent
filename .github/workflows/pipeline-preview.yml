@@ -97,12 +97,29 @@ jobs:
           print(f"MINIMUM MATCH SCORE: {minimum_score}")
           print("=" * 80)
 
+          from src.processing.freshness import classify_freshness
           for index, job in enumerate(jobs, 1):
               print()
               print(f"[{index}] {job.company}")
               print(f"    Role: {job.title}")
               print(f"    Location: {job.location}")
               print(f"    Score: {job.match_score}")
+
+              print(
+                  f"    Freshness: "
+                  f"{classify_freshness(job)}"
+              )
+              
+              print(
+                  f"    Posting Date: "
+                  f"{job.posting_date or 'Not available'}"
+              )
+              
+              print(
+                  f"    Urgent: "
+                  f"{'Yes' if job.is_urgent else 'No'}"
+              )
+              
               print(f"    Reason: {job.match_reason}")
               print(f"    Application: {job.application_url}")
 

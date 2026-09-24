@@ -217,7 +217,31 @@ sources:
     - "Naukri"
     - "Foundit"
 
-  company_boards: []
+    company_boards:
+
+    - name: "Aera Technology"
+      platform: "lever"
+      identifier: "aeratechnology"
+
+    - name: "Titan"
+      platform: "lever"
+      identifier: "titan"
+
+    - name: "Portcast"
+      platform: "lever"
+      identifier: "portcast"
+
+    - name: "Brillio"
+      platform: "lever"
+      identifier: "brillio-2"
+
+    - name: "Celonis"
+      platform: "greenhouse"
+      identifier: "celonis"
+
+    - name: "Arcana"
+      platform: "greenhouse"
+      identifier: "arcanaanalytics"
 
   prioritize_official_application: true
 

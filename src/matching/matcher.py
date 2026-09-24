@@ -88,6 +88,10 @@ def score_skill_match(
 ) -> float:
     """
     Score technical skill overlap out of 30.
+
+    Score is based on the number of relevant candidate skills
+    matched by the job, rather than requiring the job to match
+    the entire candidate skill inventory.
     """
 
     job_text = combined_job_text(job)
@@ -101,19 +105,22 @@ def score_skill_match(
         if skill
     ]
 
+    if not normalized_skills:
+        return 0.0
+
     matched = {
         skill
         for skill in normalized_skills
         if skill and skill in job_text
     }
 
-    if not normalized_skills:
+    matched_count = len(matched)
+
+    if matched_count == 0:
         return 0.0
 
-    ratio = len(matched) / len(set(normalized_skills))
-
-    # Cap at 30.
-    return min(30.0, ratio * 30.0)
+    # Four meaningful skill matches = full technical score.
+    return min(30.0, matched_count * 7.5)
 
 
 def score_location_match(
@@ -368,21 +375,26 @@ def calculate_match(
 
     if role_score >= 27:
         reasons.append("strong role match")
-
+    
+    if skill_score > 0:
+        reasons.append(
+            f"skill score: {skill_score:.1f}/30"
+        )
+    
     if matched_skills:
         reasons.append(
             f"skills: {', '.join(matched_skills[:8])}"
         )
-
+    
     if location_score >= 13:
         reasons.append("preferred location")
-
+    
     if experience_score >= 9:
         reasons.append("fresher/entry-level compatible")
-
+    
     if freshness_score >= 10:
         reasons.append("fresh or urgent")
-
-    job.match_reason = "; ".join(reasons)
-
-    return job
+    
+        job.match_reason = "; ".join(reasons)
+    
+        return job

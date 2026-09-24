@@ -1,0 +1,107 @@
+name: Pipeline Preview
+
+on:
+  workflow_dispatch:
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run matching pipeline preview
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          import yaml
+
+          from src.collectors.official_careers import collect as collect_official_careers
+          from src.processing.normalizer import normalize_jobs
+          from src.processing.deduplicator import deduplicate_jobs
+          from src.processing.freshness import process_freshness
+          from src.matching.matcher import match_jobs
+          from src.processing.filter import filter_jobs
+
+          print("=" * 80)
+          print("AI JOB OPPORTUNITY AGENT — PIPELINE PREVIEW")
+          print("=" * 80)
+
+          with open("config/preferences.yaml", "r", encoding="utf-8") as f:
+              preferences = yaml.safe_load(f)
+
+          company_boards = (
+              preferences
+              .get("sources", {})
+              .get("company_boards", [])
+          )
+
+          print(f"Configured companies: {len(company_boards)}")
+
+          raw_jobs = collect_official_careers(company_boards)
+
+          print(f"Raw jobs collected: {len(raw_jobs)}")
+
+          jobs = normalize_jobs(raw_jobs)
+
+          print(f"After normalization: {len(jobs)}")
+
+          jobs = deduplicate_jobs(jobs)
+
+          print(f"After deduplication: {len(jobs)}")
+
+          jobs = process_freshness(jobs)
+
+          jobs = match_jobs(
+              jobs,
+              preferences,
+          )
+
+          minimum_score = float(
+              preferences
+              .get("matching", {})
+              .get("minimum_score_to_include", 55)
+          )
+
+          jobs = filter_jobs(
+              jobs,
+              minimum_score=minimum_score,
+          )
+
+          jobs.sort(
+              key=lambda job: job.match_score,
+              reverse=True,
+          )
+
+          print()
+          print("=" * 80)
+          print(f"FINAL MATCHED JOBS: {len(jobs)}")
+          print(f"MINIMUM MATCH SCORE: {minimum_score}")
+          print("=" * 80)
+
+          for index, job in enumerate(jobs, 1):
+              print()
+              print(f"[{index}] {job.company}")
+              print(f"    Role: {job.title}")
+              print(f"    Location: {job.location}")
+              print(f"    Score: {job.match_score}")
+              print(f"    Reason: {job.match_reason}")
+              print(f"    Application: {job.application_url}")
+
+          print()
+          print("=" * 80)
+          print("PIPELINE PREVIEW COMPLETE")
+          print("=" * 80)
+          PY

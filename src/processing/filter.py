@@ -13,6 +13,63 @@ def is_expired(job: Job) -> bool:
     return job.deadline == "EXPIRED"
 
 
+def is_allowed_location(job: Job) -> bool:
+    """
+    Allow preferred Indian locations and Remote India.
+
+    Other locations are allowed only when the job has a
+    very strong overall match.
+    """
+
+    location = (job.location or "").lower()
+
+    preferred_locations = [
+        "noida",
+        "greater noida",
+        "new delhi",
+        "delhi",
+        "gurugram",
+        "gurgaon",
+        "bangalore",
+        "bengaluru",
+        "jaipur",
+        "pune",
+        "mumbai",
+        "navi mumbai",
+    ]
+
+    remote_locations = [
+        "remote india",
+        "india remote",
+    ]
+
+    if any(
+        preferred in location
+        for preferred in preferred_locations
+    ):
+        return True
+
+    if any(
+        remote in location
+        for remote in remote_locations
+    ):
+        return True
+
+    # Other Indian locations can be considered only
+    # for exceptionally strong matches.
+    india_indicators = [
+        "india",
+        "indian",
+    ]
+
+    if any(
+        indicator in location
+        for indicator in india_indicators
+    ):
+        return job.match_score >= 80.0
+
+    return False
+
 def should_include(
     job: Job,
     minimum_score: float = DEFAULT_MIN_MATCH_SCORE,
@@ -21,6 +78,9 @@ def should_include(
     minimum_experience_score: float = DEFAULT_MIN_EXPERIENCE_SCORE,
 ) -> bool:
     if job is None:
+        return False
+
+    if not is_allowed_location(job):
         return False
 
     if is_expired(job):

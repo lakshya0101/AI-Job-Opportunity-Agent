@@ -1,0 +1,47 @@
+name: Test Job Email
+
+on:
+  workflow_dispatch:
+
+jobs:
+  send-test-email:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Resend
+        run: pip install resend
+
+      - name: Send test email
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          import resend
+
+          resend.api_key = os.environ["RESEND_API_KEY"]
+
+          params = {
+              "from": "onboarding@resend.dev",
+              "to": ["lakshyadogra05@gmail.com"],
+              "subject": "AI Job Opportunity Agent — Test Successful",
+              "html": """
+              <h2>🚀 AI Job Opportunity Agent</h2>
+              <p>Your automated email pipeline is working.</p>
+              <p>Next we will connect the job-search engine.</p>
+              <hr>
+              <p><b>Target delivery:</b> Every morning at 10:00 AM IST</p>
+              """
+          }
+
+          email = resend.Emails.send(params)
+          print(email)
+          PY

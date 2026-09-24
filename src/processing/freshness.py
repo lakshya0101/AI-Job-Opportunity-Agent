@@ -112,10 +112,6 @@ def classify_freshness(job: Job) -> str:
 def is_reportable(job: Job) -> bool:
     """
     Decide whether a job should appear in the daily report.
-
-    New and fresh jobs are always reportable.
-    Older jobs are included only when they are still active
-    and have a strong match.
     """
 
     category = classify_freshness(job)
@@ -123,14 +119,13 @@ def is_reportable(job: Job) -> bool:
     if category in {"NEW_TODAY", "FRESH"}:
         return True
 
-    if category == "ACTIVE" and job.match_score >= 80:
+    if category == "ACTIVE" and job.match_score >= 70:
         return True
 
-    if category == "OLDER_ACTIVE" and job.match_score >= 90:
+    if category == "OLDER_ACTIVE" and job.match_score >= 85:
         return True
 
     return False
-
 
 def mark_freshness(job: Job) -> Job:
     """

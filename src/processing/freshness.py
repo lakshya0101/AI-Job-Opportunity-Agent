@@ -19,6 +19,8 @@ def parse_date(value: Optional[str]) -> Optional[datetime]:
         "%Y-%m-%dT%H:%M:%S",
         "%Y-%m-%dT%H:%M:%SZ",
         "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S.%f%z",
         "%d-%m-%Y",
         "%d/%m/%Y",
         "%d %b %Y",
@@ -164,11 +166,10 @@ def mark_freshness(job: Job) -> Job:
 
     return job
 
-    return job
-
 
 def process_freshness(jobs):
     """
     Apply freshness classification and flags to all jobs.
     """
+
     return [mark_freshness(job) for job in jobs]

@@ -1,0 +1,8 @@
+beautifulsoup4
+feedparser
+httpx
+pydantic
+pyyaml
+python-dateutil
+resend
+lxml

@@ -6,3 +6,5 @@ pyyaml
 python-dateutil
 resend
 lxml
+requests>=2.31.0
+PyYAML>=6.0

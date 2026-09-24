@@ -1,0 +1,33 @@
+name: Daily Job Opportunity Report
+
+on:
+  schedule:
+    - cron: "30 4 * * *"
+
+  workflow_dispatch:
+
+jobs:
+  job-agent:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run job opportunity agent
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          JOB_REPORT_EMAIL: ${{ secrets.JOB_REPORT_EMAIL }}
+        run: |
+          python -m src.main

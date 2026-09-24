@@ -221,9 +221,9 @@ sources:
       platform: "lever"
       identifier: "aeratechnology"
 
-    - name: "Titan"
+    - name: "Drivetrain"
       platform: "lever"
-      identifier: "titan"
+      identifier: "drivetrain"
 
     - name: "Portcast"
       platform: "lever"

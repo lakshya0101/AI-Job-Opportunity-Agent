@@ -163,3 +163,12 @@ def mark_freshness(job: Job) -> Job:
                 job.is_urgent = True
 
     return job
+
+    return job
+
+
+def process_freshness(jobs):
+    """
+    Apply freshness classification and flags to all jobs.
+    """
+    return [mark_freshness(job) for job in jobs]

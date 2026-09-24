@@ -1,4 +1,5 @@
 from typing import Dict, Iterable, List, Optional
+from datetime import datetime, timezone
 
 import requests
 
@@ -297,6 +298,40 @@ def collect_lever(
             if commitment:
                 skills.append(commitment)
 
+        # Lever commonly exposes createdAt as
+        # a Unix timestamp in milliseconds.
+        posting_date = None
+
+        created_at = item.get("createdAt")
+
+        if created_at:
+            try:
+                if isinstance(
+                    created_at,
+                    (int, float),
+                ):
+                    posting_date = (
+                        datetime.fromtimestamp(
+                            created_at / 1000,
+                            tz=timezone.utc,
+                        ).isoformat()
+                    )
+
+                elif isinstance(
+                    created_at,
+                    str,
+                ):
+                    posting_date = _clean(
+                        created_at
+                    )
+
+            except (
+                ValueError,
+                TypeError,
+                OverflowError,
+            ):
+                posting_date = None
+
         jobs.append(
             {
                 "company": company_name,
@@ -306,7 +341,7 @@ def collect_lever(
                 "experience": None,
                 "eligibility": None,
                 "compensation": None,
-                "posting_date": None,
+                "posting_date": posting_date,
                 "deadline": None,
                 "description": combined_description,
                 "source": "official_company_careers",

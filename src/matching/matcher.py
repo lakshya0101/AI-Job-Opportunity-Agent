@@ -89,9 +89,8 @@ def score_skill_match(
     """
     Score technical skill overlap out of 30.
 
-    Score is based on the number of relevant candidate skills
-    matched by the job, rather than requiring the job to match
-    the entire candidate skill inventory.
+    Core AI/ML, GenAI, backend and data skills receive
+    more weight than supporting tools such as Git/GitHub.
     """
 
     job_text = combined_job_text(job)
@@ -114,13 +113,72 @@ def score_skill_match(
         if skill and skill in job_text
     }
 
-    matched_count = len(matched)
-
-    if matched_count == 0:
+    if not matched:
         return 0.0
 
-    # Four meaningful skill matches = full technical score.
-    return min(30.0, matched_count * 7.5)
+    high_value_skills = {
+        "python",
+        "c++",
+        "sql",
+        "machine learning",
+        "deep learning",
+        "scikit learn",
+        "pandas",
+        "numpy",
+        "tensorflow",
+        "pytorch",
+        "llm",
+        "llms",
+        "generative ai",
+        "genai",
+        "langchain",
+        "langgraph",
+        "rag",
+        "retrieval augmented generation",
+        "multi agent",
+        "agentic ai",
+        "ai agents",
+        "fastapi",
+        "flask",
+        "rest api",
+        "rest apis",
+        "postgresql",
+        "mysql",
+        "vector database",
+        "faiss",
+        "nlp",
+        "computer vision",
+        "ocr",
+        "forecasting",
+        "data analysis",
+        "business intelligence",
+        "analytics",
+    }
+
+    supporting_skills = {
+        "git",
+        "github",
+        "docker",
+        "sqlite",
+        "sqlalchemy",
+        "validation",
+        "testing",
+        "model evaluation",
+        "prompt engineering",
+        "ai automation",
+    }
+
+    score = 0.0
+
+    for skill in matched:
+        if skill in high_value_skills:
+            score += 7.5
+        elif skill in supporting_skills:
+            score += 3.0
+        else:
+            score += 4.0
+
+    return min(30.0, score)
 
 
 def score_location_match(

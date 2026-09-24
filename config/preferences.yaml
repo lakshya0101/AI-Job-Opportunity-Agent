@@ -204,7 +204,6 @@ business_analyst_preferences:
 # ------------------------------------------------------------
 
 sources:
-
   preferred:
     - "official_company_careers"
     - "LinkedIn"
@@ -217,8 +216,7 @@ sources:
     - "Naukri"
     - "Foundit"
 
-    company_boards:
-
+  company_boards:
     - name: "Aera Technology"
       platform: "lever"
       identifier: "aeratechnology"

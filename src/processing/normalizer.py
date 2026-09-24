@@ -68,7 +68,7 @@ def normalize_job(raw: Dict[str, Any]) -> Job:
         match_score=float(raw.get("match_score", 0.0)),
         match_reason=clean_text(raw.get("match_reason")) or None,
 
-        is_new=bool(raw.get("is_new", True)),
+        is_new=bool(raw.get("is_new", False)),
         is_updated=bool(raw.get("is_updated", False)),
         is_urgent=bool(raw.get("is_urgent", False)),
     )

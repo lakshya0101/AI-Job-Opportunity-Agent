@@ -345,6 +345,12 @@ def calculate_match(
         + freshness_score
     )
 
+    job.role_score = role_score
+    job.skill_score = skill_score
+    job.location_score = location_score
+    job.experience_score = experience_score
+    job.freshness_score = freshness_score
+    
     job.match_score = round(
         min(100.0, total),
         2,

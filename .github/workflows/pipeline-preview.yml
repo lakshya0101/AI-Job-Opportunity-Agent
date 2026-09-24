@@ -43,7 +43,11 @@ jobs:
           print("AI JOB OPPORTUNITY AGENT — PIPELINE PREVIEW")
           print("=" * 80)
 
-          with open("config/preferences.yaml", "r", encoding="utf-8") as f:
+          with open(
+              "config/preferences.yaml",
+              "r",
+              encoding="utf-8",
+          ) as f:
               preferences = yaml.safe_load(f)
 
           company_boards = (
@@ -52,22 +56,36 @@ jobs:
               .get("company_boards", [])
           )
 
-          print(f"Configured companies: {len(company_boards)}")
+          print(
+              f"Configured companies: "
+              f"{len(company_boards)}"
+          )
 
-          raw_jobs = collect_official_careers(company_boards)
+          raw_jobs = collect_official_careers(
+              company_boards
+          )
 
-          print(f"Raw jobs collected: {len(raw_jobs)}")
+          print(
+              f"Raw jobs collected: "
+              f"{len(raw_jobs)}"
+          )
 
           jobs = [
               normalize_job(raw_job)
               for raw_job in raw_jobs
           ]
-          
-          print(f"After normalization: {len(jobs)}")
+
+          print(
+              f"After normalization: "
+              f"{len(jobs)}"
+          )
 
           jobs = deduplicate_jobs(jobs)
 
-          print(f"After deduplication: {len(jobs)}")
+          print(
+              f"After deduplication: "
+              f"{len(jobs)}"
+          )
 
           jobs = process_freshness(jobs)
 
@@ -82,7 +100,10 @@ jobs:
           minimum_score = float(
               preferences
               .get("matching", {})
-              .get("minimum_score_to_include", 55)
+              .get(
+                  "minimum_score_to_include",
+                  55,
+              )
           )
 
           jobs = filter_jobs(
@@ -90,42 +111,70 @@ jobs:
               minimum_score=minimum_score,
           )
 
-          jobs.sort(
+          reportable_jobs = [
+              job
+              for job in jobs
+              if is_reportable(job)
+          ]
+
+          reportable_jobs.sort(
               key=lambda job: job.match_score,
               reverse=True,
           )
 
           print()
           print("=" * 80)
-          print(f"FINAL MATCHED JOBS: {len(jobs)}")
-          print(f"MINIMUM MATCH SCORE: {minimum_score}")
+          print(
+              f"FINAL MATCHED JOBS: "
+              f"{len(reportable_jobs)}"
+          )
+          print(
+              f"MINIMUM MATCH SCORE: "
+              f"{minimum_score}"
+          )
           print("=" * 80)
 
-          from src.processing.freshness import classify_freshness
-          for index, job in enumerate(jobs, 1):
+          for index, job in enumerate(
+              reportable_jobs,
+              1,
+          ):
               print()
-              print(f"[{index}] {job.company}")
-              print(f"    Role: {job.title}")
-              print(f"    Location: {job.location}")
-              print(f"    Score: {job.match_score}")
-
+              print(
+                  f"[{index}] "
+                  f"{job.company}"
+              )
+              print(
+                  f"    Role: "
+                  f"{job.title}"
+              )
+              print(
+                  f"    Location: "
+                  f"{job.location}"
+              )
+              print(
+                  f"    Score: "
+                  f"{job.match_score}"
+              )
               print(
                   f"    Freshness: "
                   f"{classify_freshness(job)}"
               )
-              
               print(
                   f"    Posting Date: "
                   f"{job.posting_date or 'Not available'}"
               )
-              
               print(
                   f"    Urgent: "
                   f"{'Yes' if job.is_urgent else 'No'}"
               )
-              
-              print(f"    Reason: {job.match_reason}")
-              print(f"    Application: {job.application_url}")
+              print(
+                  f"    Reason: "
+                  f"{job.match_reason}"
+              )
+              print(
+                  f"    Application: "
+                  f"{job.application_url}"
+              )
 
           print()
           print("=" * 80)

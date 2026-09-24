@@ -38,6 +38,11 @@ class Job:
 
     match_score: float = 0.0
     match_reason: Optional[str] = None
+    role_score: float = 0.0
+    skill_score: float = 0.0
+    location_score: float = 0.0
+    experience_score: float = 0.0
+    freshness_score: float = 0.0
 
     is_new: bool = True
     is_updated: bool = False

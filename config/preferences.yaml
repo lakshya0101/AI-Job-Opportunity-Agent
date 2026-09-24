@@ -217,6 +217,8 @@ sources:
     - "Naukri"
     - "Foundit"
 
+  company_boards: []
+
   prioritize_official_application: true
 
 # ------------------------------------------------------------

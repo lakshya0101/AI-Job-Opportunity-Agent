@@ -1,4 +1,4 @@
-from typing import Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 from src.models.job import Job
 from src.processing.freshness import is_expired, is_reportable
@@ -9,34 +9,75 @@ DEFAULT_MIN_ROLE_SCORE = 27.0
 DEFAULT_MIN_EXPERIENCE_SCORE = 5.0
 
 
-def is_allowed_location(job: Job) -> bool:
+def is_allowed_location(job: Job, preferences: Optional[Dict[str, Any]] = None) -> bool:
     """
-    Allow preferred Indian locations and Remote India.
+    Allow preferred Indian locations and Remote India according to profile preferences.
 
     Other Indian locations are allowed only when the job has a
     strong overall match (>=80.0).
     """
     location = (job.location or "").lower()
 
-    preferred_locations = [
-        "noida",
-        "greater noida",
-        "new delhi",
-        "delhi",
-        "gurugram",
-        "gurgaon",
-        "bangalore",
-        "bengaluru",
-        "jaipur",
-        "pune",
-        "mumbai",
-        "navi mumbai",
-    ]
+    if preferences:
+        # Resolve active profile if nested
+        active_prefs = preferences
+        if "locations" not in active_prefs and "profiles" in active_prefs:
+            active_prefs = active_prefs["profiles"].get("lakshya", {})
 
-    remote_locations = [
-        "remote india",
-        "india remote",
+        loc_cfg = active_prefs.get("locations", {})
+        priority_map = loc_cfg.get("priority", {})
+        
+        preferred_locations = []
+        for locs in priority_map.values():
+            if isinstance(locs, list):
+                preferred_locations.extend(l.lower() for l in locs if l)
+
+        remote_list = loc_cfg.get("remote", [])
+        remote_locations = [r.lower() for r in remote_list if r]
+    else:
+        preferred_locations = [
+            "noida",
+            "greater noida",
+            "new delhi",
+            "delhi",
+            "gurugram",
+            "gurgaon",
+            "bangalore",
+            "bengaluru",
+            "jaipur",
+            "pune",
+            "mumbai",
+            "navi mumbai",
+        ]
+        remote_locations = [
+            "remote india",
+            "india remote",
+        ]
+
+    # Explicit overseas locations without India should be rejected
+    overseas_indicators = [
+        "canada",
+        "uk",
+        "united kingdom",
+        "us",
+        "usa",
+        "united states",
+        "germany",
+        "poland",
+        "macedonia",
+        "romania",
+        "singapore",
+        "australia",
+        "ireland",
+        "spain",
+        "france",
+        "netherlands",
+        "brazil",
+        "mexico",
+        "japan",
     ]
+    if any(os_ind in location for os_ind in overseas_indicators) and not any(ind in location for ind in ["india", "indian"]):
+        return False
 
     if any(preferred in location for preferred in preferred_locations):
         return True
@@ -69,6 +110,7 @@ def should_include(
     minimum_skill_score: float = DEFAULT_MIN_SKILL_SCORE,
     minimum_role_score: float = DEFAULT_MIN_ROLE_SCORE,
     minimum_experience_score: float = DEFAULT_MIN_EXPERIENCE_SCORE,
+    preferences: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """
     Evaluate whether a job qualifies for the final report.
@@ -81,7 +123,7 @@ def should_include(
         return False
 
     # Check location constraints
-    if not is_allowed_location(job):
+    if not is_allowed_location(job, preferences=preferences):
         return False
 
     # Require an actual target-role match
@@ -117,6 +159,7 @@ def filter_jobs(
     minimum_skill_score: float = DEFAULT_MIN_SKILL_SCORE,
     minimum_role_score: float = DEFAULT_MIN_ROLE_SCORE,
     minimum_experience_score: float = DEFAULT_MIN_EXPERIENCE_SCORE,
+    preferences: Optional[Dict[str, Any]] = None,
 ) -> List[Job]:
     """Filter candidate jobs against all qualification criteria."""
     return [
@@ -128,5 +171,6 @@ def filter_jobs(
             minimum_skill_score=minimum_skill_score,
             minimum_role_score=minimum_role_score,
             minimum_experience_score=minimum_experience_score,
+            preferences=preferences,
         )
     ]

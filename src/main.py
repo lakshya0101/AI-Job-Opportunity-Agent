@@ -1,5 +1,5 @@
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import logging
 import os
@@ -12,8 +12,13 @@ import yaml
 from src.collectors.base import CollectorStatus, SourceHealth
 from src.email.resend_client import send_daily_report
 from src.email.subject import build_subject
-from src.pipeline import PipelineResult, run_pipeline
-from src.reporting.excel_report import generate_excel_report, get_default_excel_filename
+from src.pipeline import (
+    PipelineResult,
+    collect_and_process_base_jobs,
+    evaluate_profile_jobs,
+    get_profiles,
+)
+from src.reporting.excel_report import generate_excel_report, get_profile_excel_filename
 from src.reporting.report_builder import DailyReport, build_report
 from src.reporting.templates import render_daily_report
 from src.storage.job_store import JobStore
@@ -31,6 +36,20 @@ DEFAULT_OUTPUT_DIR = BASE_DIR / "output"
 
 
 @dataclass
+class ProfileRunResult:
+    """Outcome of reporting for a single candidate profile."""
+    profile_key: str
+    profile_name: str
+    recipient: str
+    report: DailyReport
+    html_content: str
+    excel_path: Path
+    subject: str
+    email_status: str = "PENDING"
+    error: Optional[str] = None
+
+
+@dataclass
 class ProductionRunResult:
     """Structured outcome of a full production orchestration cycle."""
     success: bool
@@ -42,6 +61,7 @@ class ProductionRunResult:
     pipeline_result: Optional[PipelineResult] = None
     report: Optional[DailyReport] = None
     excel_path: Optional[Path] = None
+    profile_results: Dict[str, ProfileRunResult] = field(default_factory=dict)
     error: Optional[str] = None
 
 
@@ -62,17 +82,15 @@ def run_production(
     collectors: Optional[List[Any]] = None,
 ) -> ProductionRunResult:
     """
-    Execute the end-to-end production workflow.
+    Execute the multi-user end-to-end production workflow.
 
     Sequential Stages:
     1. Configuration & Storage initialization
-    2. Central pipeline execution (Collect -> Normalize -> Deduplicate -> Change Detection -> Freshness -> Match -> Filter)
+    2. Shared Upstream Pipeline (Collect once -> Normalize -> Deduplicate -> Change Detection -> Freshness -> Link Validation)
     3. Failure safety check (Verify not all collectors failed)
-    4. Daily report construction
-    5. HTML email rendering
-    6. Excel report generation
-    7. Email dispatch via Resend
-    8. Database persistence (strictly upon verified email dispatch)
+    4. Per-profile Evaluation, Reporting, HTML rendering, and Excel generation
+    5. Transactional email dispatch per candidate
+    6. Database persistence (strictly upon all emails succeeding)
     """
     start_time = datetime.now(timezone.utc)
     report_date = start_time.strftime("%d %b %Y")
@@ -96,11 +114,15 @@ def run_production(
 
     store = JobStore(str(db_path))
 
-    # 2. Central Pipeline Execution
+    # 2. Shared Upstream Pipeline Execution (Collect once)
     try:
-        pipeline_result = run_pipeline(preferences, store, collectors=collectors)
+        base_jobs, source_health, metrics = collect_and_process_base_jobs(
+            preferences,
+            store,
+            collectors=collectors,
+        )
     except Exception as exc:
-        logger.error(f"Central pipeline execution failed: {exc}", exc_info=True)
+        logger.error(f"Upstream pipeline execution failed: {exc}", exc_info=True)
         return ProductionRunResult(
             success=False,
             pipeline_status="PIPELINE_FAILED",
@@ -109,7 +131,7 @@ def run_production(
 
     # 3. All-Collectors-Failed Safety Check
     executed_sources = [
-        sh for sh in pipeline_result.source_health
+        sh for sh in source_health
         if sh.status != CollectorStatus.NOT_IMPLEMENTED
     ]
     if executed_sources and all(sh.status == CollectorStatus.FAILED for sh in executed_sources):
@@ -118,76 +140,96 @@ def run_production(
         return ProductionRunResult(
             success=False,
             pipeline_status="ALL_COLLECTORS_FAILED",
-            pipeline_result=pipeline_result,
             error=err_msg,
         )
 
-    # 4. Build Structured Daily Report
-    report = build_report(
-        pipeline_result.reportable_jobs,
-        pipeline_result=pipeline_result,
-    )
+    logger.info("Upstream Pipeline Execution Metrics:")
+    logger.info(f"  Collected:   {metrics['collected_count']}")
+    logger.info(f"  Normalized:  {metrics['normalized_count']}")
+    logger.info(f"  Unique:      {metrics['deduplicated_count']}")
 
-    logger.info("Pipeline Execution Metrics:")
-    logger.info(f"  Collected:   {pipeline_result.collected_count}")
-    logger.info(f"  Unique:      {pipeline_result.deduplicated_count}")
-    logger.info(f"  New (Seen):  {pipeline_result.new_count}")
-    logger.info(f"  Updated:     {pipeline_result.updated_count}")
-    logger.info(f"  Matched:     {pipeline_result.matched_count}")
-    logger.info(f"  Reportable:  {pipeline_result.filtered_count}")
+    # 4. Process each Candidate Profile
+    profiles = get_profiles(preferences)
+    profile_results: Dict[str, ProfileRunResult] = {}
+    primary_pipeline_result: Optional[PipelineResult] = None
+    primary_report: Optional[DailyReport] = None
+    primary_excel_path: Optional[Path] = None
 
-    # 5. Render HTML
-    try:
-        html_content = render_daily_report(report, report_date)
-        html_status = "SUCCESS"
-    except Exception as exc:
-        logger.error(f"HTML rendering failed: {exc}", exc_info=True)
-        return ProductionRunResult(
-            success=False,
-            pipeline_status="SUCCESS",
-            html_status="FAILED",
-            pipeline_result=pipeline_result,
-            report=report,
-            error=f"HTML error: {exc}",
-        )
-
-    # 6. Generate Excel Report
     output_dir.mkdir(parents=True, exist_ok=True)
-    excel_filename = get_default_excel_filename(date_slug)
-    excel_path = output_dir / excel_filename
 
-    try:
-        generate_excel_report(report, excel_path, report_date)
-        excel_status = "SUCCESS"
-        logger.info(f"Excel report generated: {excel_path}")
-    except Exception as exc:
-        logger.error(f"Excel report generation failed: {exc}", exc_info=True)
-        return ProductionRunResult(
-            success=False,
-            pipeline_status="SUCCESS",
-            html_status=html_status,
-            excel_status="FAILED",
-            pipeline_result=pipeline_result,
-            report=report,
-            error=f"Excel error: {exc}",
+    for profile_key, profile_cfg in profiles.items():
+        profile_name = profile_cfg.get("name", profile_key.capitalize())
+        logger.info(f"\n--- Evaluating Profile: {profile_name} ({profile_key}) ---")
+
+        # Evaluate jobs against candidate criteria
+        pipeline_res = evaluate_profile_jobs(
+            base_jobs=base_jobs,
+            profile_config=profile_cfg,
+            source_health=source_health,
+            metrics=metrics,
+            global_preferences=preferences,
         )
 
-    # 7. Configure Subject & Recipient
-    email_cfg = preferences.get("email", {})
-    recipient = os.getenv("JOB_REPORT_EMAIL", email_cfg.get("recipient", "lakshyadogra05@gmail.com"))
-    subject_prefix = email_cfg.get("subject_prefix", "🚀 Daily Job Opportunities")
-    attach_excel = email_cfg.get("attach_excel", True)
+        logger.info(f"  Matched:     {pipeline_res.matched_count}")
+        logger.info(f"  Reportable:  {pipeline_res.filtered_count}")
 
-    subject = build_subject(
-        report_date=report_date,
-        new_count=report.summary.new,
-        apply_first_count=len(report.apply_first),
-        prefix=subject_prefix,
-    )
+        # Build DailyReport
+        report = build_report(
+            pipeline_res.reportable_jobs,
+            pipeline_result=pipeline_res,
+        )
 
-    # 8. Dry Run Intercept
+        # Render HTML
+        show_ba = bool(profile_key == "lakshya" or "business_analysis" in profile_cfg.get("roles", {}))
+        html_content = render_daily_report(
+            report,
+            report_date,
+            profile_name=profile_name,
+            show_business_analyst=show_ba,
+        )
+
+        # Generate Excel
+        excel_filename = get_profile_excel_filename(profile_key, date_slug)
+        excel_path = output_dir / excel_filename
+        generate_excel_report(report, excel_path, report_date, profile_name=profile_name)
+
+        # Subject and recipient
+        email_cfg = profile_cfg.get("email_config", {})
+        env_key = f"JOB_REPORT_EMAIL_{profile_key.upper()}"
+        recipient = os.getenv(env_key)
+        if not recipient and len(profiles) == 1:
+            recipient = os.getenv("JOB_REPORT_EMAIL")
+        if not recipient:
+            recipient = email_cfg.get("recipient", profile_cfg.get("email", "lakshyadogra05@gmail.com"))
+
+        subject_prefix = email_cfg.get("subject_prefix", f"🚀 {profile_name}'s Daily Job Opportunities")
+        subject = build_subject(
+            report_date=report_date,
+            new_count=report.summary.new,
+            apply_first_count=len(report.apply_first),
+            prefix=subject_prefix,
+        )
+
+        prof_res = ProfileRunResult(
+            profile_key=profile_key,
+            profile_name=profile_name,
+            recipient=recipient,
+            report=report,
+            html_content=html_content,
+            excel_path=excel_path,
+            subject=subject,
+        )
+        profile_results[profile_key] = prof_res
+
+        # Keep primary profile for backward compatibility
+        if primary_pipeline_result is None or profile_key == "lakshya":
+            primary_pipeline_result = pipeline_res
+            primary_report = report
+            primary_excel_path = excel_path
+
+    # 5. Dry Run Intercept
     if dry_run:
-        logger.info("DRY RUN COMPLETE: Email sending and persistent database storage skipped.")
+        logger.info("\nDRY RUN COMPLETE: Email sending and persistent database storage skipped.")
         return ProductionRunResult(
             success=True,
             pipeline_status="SUCCESS",
@@ -195,45 +237,60 @@ def run_production(
             excel_status="SUCCESS",
             email_status="SKIPPED (DRY RUN)",
             persistence_status="SKIPPED (DRY RUN)",
-            pipeline_result=pipeline_result,
-            report=report,
-            excel_path=excel_path,
+            pipeline_result=primary_pipeline_result,
+            report=primary_report,
+            excel_path=primary_excel_path,
+            profile_results=profile_results,
         )
 
-    # 9. Send Email via Resend
-    attachment_to_send = excel_path if attach_excel else None
-    try:
-        send_daily_report(
-            recipient=recipient,
-            subject=subject,
-            html=html_content,
-            attachment_path=attachment_to_send,
-        )
-        email_status = "SUCCESS"
-        logger.info(f"Report email successfully sent to {recipient}")
-    except Exception as exc:
-        logger.error(f"Email dispatch failed: {exc}")
+    # 6. Transactional Email Dispatch
+    email_failures: List[str] = []
+    for profile_key, prof_res in profile_results.items():
+        profile_cfg = profiles[profile_key]
+        email_cfg = profile_cfg.get("email_config", {})
+        attach_excel = email_cfg.get("attach_excel", True)
+        attachment = prof_res.excel_path if attach_excel else None
+
+        try:
+            send_daily_report(
+                recipient=prof_res.recipient,
+                subject=prof_res.subject,
+                html=prof_res.html_content,
+                attachment_path=attachment,
+            )
+            prof_res.email_status = "SUCCESS"
+            logger.info(f"{prof_res.profile_name} email: SUCCESS (Sent to {prof_res.recipient})")
+        except Exception as exc:
+            prof_res.email_status = "FAILED"
+            prof_res.error = str(exc)
+            email_failures.append(f"{prof_res.profile_name} ({prof_res.recipient}): {exc}")
+            logger.error(f"{prof_res.profile_name} email: FAILED ({exc})")
+
+    # 7. Transactional State Persistence (Strictly if ALL emails succeed)
+    if email_failures:
+        err_msg = f"Email delivery failed for {len(email_failures)} recipient(s): {'; '.join(email_failures)}"
+        logger.error(f"State persistence: SKIPPED (Due to email failure)")
         return ProductionRunResult(
             success=False,
             pipeline_status="SUCCESS",
-            html_status=html_status,
-            excel_status=excel_status,
+            html_status="SUCCESS",
+            excel_status="SUCCESS",
             email_status="FAILED",
             persistence_status="SKIPPED (DUE TO EMAIL FAILURE)",
-            pipeline_result=pipeline_result,
-            report=report,
-            excel_path=excel_path,
-            error=f"Email dispatch error: {exc}",
+            pipeline_result=primary_pipeline_result,
+            report=primary_report,
+            excel_path=primary_excel_path,
+            profile_results=profile_results,
+            error=err_msg,
         )
 
-    # 10. Persist State (Strictly on successful email dispatch)
+    # Persist all collected base jobs
     try:
-        # Save all processed jobs into persistent JobStore
-        store.save_all(pipeline_result.all_matched_jobs)
+        store.save_all(base_jobs)
         persistence_status = "SUCCESS"
-        logger.info(f"Persisted {len(pipeline_result.all_matched_jobs)} job records into {db_path.name}")
+        logger.info(f"State persistence: SUCCESS (Persisted {len(base_jobs)} records to {db_path.name})")
     except Exception as exc:
-        logger.error(f"Persistence failed: {exc}", exc_info=True)
+        logger.error(f"State persistence: FAILED ({exc})", exc_info=True)
         persistence_status = f"FAILED ({exc})"
 
     logger.info("=" * 60)
@@ -243,13 +300,14 @@ def run_production(
     return ProductionRunResult(
         success=True,
         pipeline_status="SUCCESS",
-        html_status=html_status,
-        excel_status=excel_status,
-        email_status=email_status,
+        html_status="SUCCESS",
+        excel_status="SUCCESS",
+        email_status="SUCCESS",
         persistence_status=persistence_status,
-        pipeline_result=pipeline_result,
-        report=report,
-        excel_path=excel_path,
+        pipeline_result=primary_pipeline_result,
+        report=primary_report,
+        excel_path=primary_excel_path,
+        profile_results=profile_results,
     )
 
 

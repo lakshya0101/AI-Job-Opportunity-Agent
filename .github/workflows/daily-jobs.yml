@@ -41,6 +41,8 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           JOB_REPORT_EMAIL: ${{ secrets.JOB_REPORT_EMAIL }}
+          JOB_REPORT_EMAIL_LAKSHYA: ${{ secrets.JOB_REPORT_EMAIL_LAKSHYA }}
+          JOB_REPORT_EMAIL_SMRITI: ${{ secrets.JOB_REPORT_EMAIL_SMRITI }}
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
         run: |
           python -m src.main

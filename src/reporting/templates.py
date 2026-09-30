@@ -213,9 +213,22 @@ def render_source_health(source_health: List[SourceHealth]) -> str:
 def render_daily_report(
     report: DailyReport,
     report_date: str,
+    profile_name: Optional[str] = None,
+    show_business_analyst: bool = True,
 ) -> str:
     """Render the full daily HTML email report."""
     summary = report.summary
+
+    is_smriti = bool(profile_name and "smriti" in profile_name.lower())
+    
+    if is_smriti:
+        header_title = "🚀 Smriti's AI Job Opportunity Report"
+        page_title = f"Smriti's AI Job Opportunity Report — {escape(report_date)}"
+        footer_candidate = "Candidate: Smriti Verma &bull; Final-Year / Fresher (0–2 YOE) &bull; Noida / Delhi / Gurgaon / Bangalore / Hyderabad / Pune / Mumbai"
+    else:
+        header_title = "🚀 AI Job Opportunity Report"
+        page_title = f"AI Job Opportunity Report — {escape(report_date)}"
+        footer_candidate = "Candidate: Lakshya Dogra &bull; B.Tech CSE (Data Science) &bull; 0–2 YOE &bull; Delhi-NCR / Bangalore / Remote India"
 
     empty_banner = ""
     if report.total_jobs == 0:
@@ -225,12 +238,26 @@ def render_daily_report(
         </div>
         """
 
+    # Optional Business Analyst Section
+    ba_section_html = ""
+    if show_business_analyst and not is_smriti:
+        ba_section_html = f"""
+        <!-- Section: Business Analyst -->
+        <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
+            📈 Business & BI Analyst Roles
+        </div>
+        <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+            Business analysis and business intelligence opportunities.
+        </div>
+        {render_jobs(report.business_analyst, "No business analyst opportunities found today.")}
+        """
+
     return f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Job Opportunity Report — {escape(report_date)}</title>
+    <title>{page_title}</title>
 </head>
 <body style="
     margin:0;
@@ -242,7 +269,7 @@ def render_daily_report(
 
 <div style="max-width:740px; margin:0 auto; padding:20px;">
 
-    <!-- Header Header -->
+    <!-- Header -->
     <div style="
         background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         color:#ffffff;
@@ -251,7 +278,7 @@ def render_daily_report(
         margin-bottom:18px;
     ">
         <div style="font-size:24px; font-weight:800; letter-spacing:-0.5px;">
-            🚀 AI Job Opportunity Report
+            {header_title}
         </div>
         <div style="font-size:13px; color:#94a3b8; margin-top:4px;">
             {escape(report_date)} &bull; Automated Candidate Matching
@@ -332,13 +359,12 @@ def render_daily_report(
     <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
         🌐 Remote India Opportunities
     </div>
+    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+        Remote positions open to candidates across India.
+    </div>
     {render_jobs(report.remote_india, "No remote opportunities found today.")}
 
-    <!-- Section: Business Analyst -->
-    <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
-        📈 Business & BI Analyst Roles
-    </div>
-    {render_jobs(report.business_analyst, "No business analyst opportunities found today.")}
+    {ba_section_html}
 
     <!-- Section: Other Strong Matches -->
     <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
@@ -362,7 +388,7 @@ def render_daily_report(
         font-size:11px;
     ">
         Generated automatically by <strong>AI Job Opportunity Agent</strong>.<br>
-        Candidate: B.Tech CSE (Data Science) &bull; 0–2 YOE &bull; Delhi-NCR / Bangalore / Remote India
+        {footer_candidate}
     </div>
 
 </div>

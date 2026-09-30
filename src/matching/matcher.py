@@ -122,8 +122,16 @@ def score_skill_match(
 
     high_value_skills = {
         "python",
+        "java",
         "c++",
         "sql",
+        "javascript",
+        "typescript",
+        "react",
+        "node",
+        "nodejs",
+        "express",
+        "django",
         "machine learning",
         "deep learning",
         "scikit learn",
@@ -148,6 +156,7 @@ def score_skill_match(
         "rest apis",
         "postgresql",
         "mysql",
+        "mongodb",
         "vector database",
         "faiss",
         "nlp",
@@ -163,8 +172,14 @@ def score_skill_match(
         "git",
         "github",
         "docker",
+        "aws",
+        "html",
+        "css",
+        "nextjs",
+        "next js",
         "sqlite",
         "sqlalchemy",
+        "asyncio",
         "validation",
         "testing",
         "model evaluation",
@@ -225,10 +240,38 @@ def score_location_match(
                 if priority == 7:
                     return 13.0
 
+    # Overseas locations without India return other location base score
+    overseas_indicators = [
+        "canada",
+        "uk",
+        "united kingdom",
+        "us",
+        "usa",
+        "united states",
+        "germany",
+        "poland",
+        "macedonia",
+        "romania",
+        "singapore",
+        "australia",
+        "ireland",
+        "spain",
+        "france",
+        "netherlands",
+        "brazil",
+        "mexico",
+        "japan",
+    ]
+    if any(os_ind in location for os_ind in overseas_indicators) and not any(ind in location for ind in ["india", "indian"]):
+        return 5.0
+
     # Remote India is intentionally included.
     for remote in remote_locations:
         if contains_term(location, remote):
             return 16.0
+
+    if "remote" in location and "india" in location:
+        return 16.0
 
     # Other locations can still be considered later
     # when the technical match is especially strong.
@@ -346,7 +389,11 @@ def calculate_match(
     attach an explanation to the Job object.
     """
 
-    role_groups = preferences.get("roles", {})
+    active_prefs = preferences
+    if "roles" not in active_prefs and "profiles" in active_prefs:
+        active_prefs = active_prefs["profiles"].get("lakshya", {})
+
+    role_groups = active_prefs.get("roles", {})
 
     role_preferences = []
 
@@ -354,7 +401,7 @@ def calculate_match(
         if isinstance(roles, list):
             role_preferences.extend(roles)
 
-    skill_groups = preferences.get("skills", {})
+    skill_groups = active_prefs.get("skills", {})
 
     skills = []
 
@@ -362,7 +409,7 @@ def calculate_match(
         if isinstance(skill_group, list):
             skills.extend(skill_group)
 
-    location_config = preferences.get("locations", {})
+    location_config = active_prefs.get("locations", {})
 
     raw_priority = location_config.get("priority", {})
 
@@ -374,7 +421,7 @@ def calculate_match(
 
     remote_locations = location_config.get("remote", [])
 
-    candidate_config = preferences.get("candidate", {})
+    candidate_config = active_prefs.get("candidate", {})
 
     experience_config = candidate_config.get("experience", {})
 

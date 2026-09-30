@@ -89,12 +89,14 @@ def _auto_fit_columns(ws, max_width_limit: int = 50):
         ws.column_dimensions[col_letter].width = min(max(max_len + 3, 10), max_width_limit)
 
 
-def _build_summary_sheet(ws, report: DailyReport, report_date: str):
+def _build_summary_sheet(ws, report: DailyReport, report_date: str, profile_name: Optional[str] = None):
     ws.title = "Summary"
     ws.views.sheetView[0].showGridLines = True
 
+    is_smriti = bool(profile_name and "smriti" in profile_name.lower())
+
     # Title
-    ws["A1"] = "AI JOB OPPORTUNITY REPORT"
+    ws["A1"] = "SMRITI'S AI JOB OPPORTUNITY REPORT" if is_smriti else "AI JOB OPPORTUNITY REPORT"
     ws["A1"].font = Font(name="Calibri", size=16, bold=True, color="1E293B")
     
     ws["A2"] = f"Report Date: {report_date}"
@@ -138,9 +140,10 @@ def _build_summary_sheet(ws, report: DailyReport, report_date: str):
         ("Urgent (Deadline <= 48h)", len(report.urgent)),
         ("Fresh & Active (1-7 Days)", len(report.fresh_active)),
         ("Remote India Opportunities", len(report.remote_india)),
-        ("Business / BI Analyst", len(report.business_analyst)),
-        ("Other Strong Matches (Score >= 80)", len(report.other_strong_matches)),
     ]
+    if not is_smriti:
+        breakdown.append(("Business / BI Analyst", len(report.business_analyst)))
+    breakdown.append(("Other Strong Matches (Score >= 80)", len(report.other_strong_matches)))
 
     for idx, (label, val) in enumerate(breakdown, start=6):
         ws[f"D{idx}"] = label
@@ -155,11 +158,18 @@ def _build_summary_sheet(ws, report: DailyReport, report_date: str):
     for col in ["B", "C", "D", "E"]:
         _format_cell(ws[f"{col}15"], fill=HEADER_FILL)
 
-    profile_info = [
-        ("Degree & Experience", "B.Tech CSE (Data Science) | Fresher / Trainee / 0–2 Years Experience"),
-        ("Target Roles", "AI/ML Engineer, GenAI/LLM Engineer, Python Backend, Data Scientist, BI/Data Analyst"),
-        ("Target Locations", "Noida, New Delhi, Gurugram, Bangalore, Jaipur, Pune, Mumbai, Remote India"),
-    ]
+    if is_smriti:
+        profile_info = [
+            ("Degree & Experience", "B.Tech | Final-Year / Fresher / Trainee / 0–2 Years Experience"),
+            ("Target Roles", "SDE, Software Engineer, Full-Stack Engineer (FDE), AI/ML Engineer, GenAI Engineer, Python Backend"),
+            ("Target Locations", "Noida, Delhi, Gurgaon, Bangalore, Hyderabad, Pune, Mumbai, Remote India"),
+        ]
+    else:
+        profile_info = [
+            ("Degree & Experience", "B.Tech CSE (Data Science) | Fresher / Trainee / 0–2 Years Experience"),
+            ("Target Roles", "AI/ML Engineer, GenAI/LLM Engineer, Python Backend, Data Scientist, BI/Data Analyst"),
+            ("Target Locations", "Noida, New Delhi, Gurugram, Bangalore, Jaipur, Pune, Mumbai, Remote India"),
+        ]
 
     for idx, (label, val) in enumerate(profile_info, start=16):
         ws[f"A{idx}"] = label
@@ -304,9 +314,8 @@ def _build_job_sheet(ws, sheet_title: str, jobs: List[Job]):
 
 
 def get_default_excel_filename(report_date: Optional[str] = None) -> str:
-    """Generate a sanitized cross-platform filename for the Excel report."""
+    """Generate a sanitized cross-platform filename for the default Excel report."""
     if report_date:
-        # Sanitize any special characters (like slashes or colons)
         date_clean = "".join(c if c.isalnum() or c in "-_" else "_" for c in report_date.strip())
         return f"ai_job_opportunities_{date_clean}.xlsx"
     
@@ -314,25 +323,24 @@ def get_default_excel_filename(report_date: Optional[str] = None) -> str:
     return f"ai_job_opportunities_{current_date}.xlsx"
 
 
+def get_profile_excel_filename(profile_key: str, report_date: Optional[str] = None) -> str:
+    """Generate a sanitized profile-specific Excel filename."""
+    if report_date:
+        date_clean = "".join(c if c.isalnum() or c in "-_" else "_" for c in report_date.strip())
+        return f"ai_job_opportunities_{profile_key}_{date_clean}.xlsx"
+    
+    current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return f"ai_job_opportunities_{profile_key}_{current_date}.xlsx"
+
+
 def generate_excel_report(
     report: DailyReport,
     output_path: Union[str, Path],
     report_date: Optional[str] = None,
+    profile_name: Optional[str] = None,
 ) -> Path:
     """
     Generate a formatted multi-sheet Excel workbook from DailyReport data.
-    
-    Sheets created:
-    1. Summary
-    2. Apply First
-    3. New Today (if jobs present)
-    4. Updated (if jobs present)
-    5. Urgent (if jobs present)
-    6. Fresh & Active (if jobs present)
-    7. Remote India (if jobs present)
-    8. Business Analyst (if jobs present)
-    9. Other Strong Matches (if jobs present)
-    10. Source Health
     """
     date_str = report_date or datetime.now(timezone.utc).strftime("%d %b %Y")
     path_obj = Path(output_path).resolve()
@@ -341,7 +349,9 @@ def generate_excel_report(
     wb = openpyxl.Workbook()
     # First default sheet
     ws_summary = wb.active
-    _build_summary_sheet(ws_summary, report, date_str)
+    _build_summary_sheet(ws_summary, report, date_str, profile_name=profile_name)
+
+    is_smriti = bool(profile_name and "smriti" in profile_name.lower())
 
     # Job category sheets
     job_sections = [
@@ -351,9 +361,10 @@ def generate_excel_report(
         ("Urgent", report.urgent),
         ("Fresh & Active", report.fresh_active),
         ("Remote India", report.remote_india),
-        ("Business Analyst", report.business_analyst),
-        ("Other Strong Matches", report.other_strong_matches),
     ]
+    if not is_smriti:
+        job_sections.append(("Business Analyst", report.business_analyst))
+    job_sections.append(("Other Strong Matches", report.other_strong_matches))
 
     for title, job_list in job_sections:
         # Create sheet if jobs exist or if it's Apply First (which should always be visible)

@@ -8,7 +8,12 @@ def detect_changes(
     jobs: Iterable[Job],
     store: JobStore,
 ) -> List[Job]:
-    """Mark jobs as new or updated."""
+    """
+    Mark jobs as new, updated, or unchanged.
+
+    This function only determines the change state.
+    Persistence is handled separately by the pipeline.
+    """
 
     changed_jobs = []
 

@@ -1,10 +1,10 @@
-from typing import Dict, Iterable, List, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+from typing import Dict, Iterable, List, Optional
 
 import requests
 
-
-REQUEST_TIMEOUT = 20
+REQUEST_TIMEOUT = 10
 
 GREENHOUSE_URL = (
     "https://boards-api.greenhouse.io/v1/boards/"
@@ -125,6 +125,16 @@ def collect_greenhouse(
                     if name:
                         skills.append(name)
 
+        posting_date = _clean(
+            item.get("first_published")
+        ) or _clean(
+            item.get("updated_at")
+        )
+
+        deadline = _clean(
+            item.get("application_deadline")
+        )
+
         jobs.append(
             {
                 "company": company_name,
@@ -134,10 +144,8 @@ def collect_greenhouse(
                 "experience": None,
                 "eligibility": None,
                 "compensation": None,
-                "posting_date": _clean(
-                    item.get("updated_at")
-                ),
-                "deadline": None,
+                "posting_date": posting_date,
+                "deadline": deadline,
                 "description": description,
                 "source": "official_company_careers",
                 "application_url": application_url,
@@ -430,31 +438,30 @@ def collect_company(
 def collect(
     companies: Iterable[Dict],
 ) -> List[dict]:
-    """Collect jobs from all configured companies."""
+    """Collect jobs from all configured companies concurrently with fault isolation."""
+
+    company_list = list(companies)
+    if not company_list:
+        return []
 
     all_jobs = []
 
-    for company in companies:
-
+    def _safe_collect_company(company: Dict) -> List[dict]:
         try:
-            jobs = collect_company(
-                company
-            )
-
-            all_jobs.extend(
-                jobs
-            )
-
+            return collect_company(company)
         except Exception as exc:
-            name = company.get(
-                "name",
-                "Unknown company",
-            )
+            name = company.get("name", "Unknown company")
+            print(f"[CAREERS ERROR] {name}: {exc}")
+            return []
 
-            print(
-                f"[CAREERS ERROR] "
-                f"{name}: {exc}"
-            )
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(_safe_collect_company, comp) for comp in company_list]
+        for future in as_completed(futures):
+            try:
+                jobs = future.result()
+                all_jobs.extend(jobs)
+            except Exception as exc:
+                print(f"[CAREERS ERROR] Task failed: {exc}")
 
     print(
         f"[CAREERS] Total collected: "
@@ -462,3 +469,38 @@ def collect(
     )
 
     return all_jobs
+
+
+from src.collectors.base import BaseCollector, CollectorResult, CollectorStatus
+
+
+class OfficialCareersCollector(BaseCollector):
+    """Collector for official company career boards (Greenhouse, Lever, etc.)."""
+
+    def __init__(self, companies: Optional[Iterable[Dict]] = None):
+        self.companies = list(companies) if companies is not None else []
+
+    @property
+    def source_name(self) -> str:
+        return "official_company_careers"
+
+    def collect(self) -> CollectorResult:
+        try:
+            jobs = collect(self.companies)
+            status = CollectorStatus.SUCCESS if jobs else CollectorStatus.EMPTY
+            return CollectorResult(
+                source=self.source_name,
+                jobs=jobs,
+                status=status,
+                error=None,
+                count=len(jobs),
+            )
+        except Exception as exc:
+            return CollectorResult(
+                source=self.source_name,
+                jobs=[],
+                status=CollectorStatus.FAILED,
+                error=str(exc),
+                count=0,
+            )
+

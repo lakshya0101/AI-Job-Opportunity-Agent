@@ -1,18 +1,22 @@
 name: Daily Job Opportunity Report
 
-on:
+"on":
   schedule:
     - cron: "30 4 * * *"
 
   workflow_dispatch:
 
+concurrency:
+  group: daily-job-agent-production
+  cancel-in-progress: false
+
 jobs:
   job-agent:
-
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -24,10 +28,27 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run test suite
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          pytest -q
 
       - name: Run job opportunity agent
         env:
+          PYTHONPATH: ${{ github.workspace }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           JOB_REPORT_EMAIL: ${{ secrets.JOB_REPORT_EMAIL }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
         run: |
           python -m src.main
+
+      - name: Persist updated database state
+        if: success()
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/jobs.db
+          git diff --staged --quiet || (git commit -m "chore(data): persist updated jobs.db state [skip ci]" && git push)

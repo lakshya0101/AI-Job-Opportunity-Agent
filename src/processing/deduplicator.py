@@ -57,6 +57,13 @@ def deduplicate_jobs(jobs: Iterable[Job]) -> list[Job]:
 
         existing = unique_jobs[key]
 
+        # Prefer official company careers source over third-party aggregator
+        if existing.source != "official_company_careers" and job.source == "official_company_careers":
+            unique_jobs[key] = job
+            continue
+        elif existing.source == "official_company_careers" and job.source != "official_company_careers":
+            continue
+
         # Prefer the job with a direct application URL.
         if not existing.application_url and job.application_url:
             unique_jobs[key] = job

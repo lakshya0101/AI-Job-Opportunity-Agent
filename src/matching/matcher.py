@@ -27,25 +27,29 @@ def normalize_text(value: str) -> str:
 
 def contains_term(text: str, term: str) -> bool:
     """Check whether a term appears as a meaningful phrase."""
-
-    text = normalize_text(text)
-    term = normalize_text(term)
-
     if not text or not term:
         return False
 
-    return term in text
+    norm_term = normalize_text(term)
+    if not norm_term:
+        return False
+
+    # Fast path if text is already normalized lowercase alphanumeric
+    if text.islower() and not re.search(r"[^a-z0-9+#.\s]", text):
+        return norm_term in text
+
+    norm_text = normalize_text(text)
+    return norm_term in norm_text
 
 
 def combined_job_text(job: Job) -> str:
     """Create searchable text from the job."""
-
     parts = [
         job.title,
         job.description,
         job.experience,
         job.eligibility,
-        " ".join(job.skills),
+        " ".join(job.skills) if job.skills else "",
     ]
 
     return normalize_text(" ".join(
@@ -422,11 +426,10 @@ def calculate_match(
     )
 
     matched_skills = []
-
     job_text = combined_job_text(job)
-
     for skill in skills:
-        if contains_term(job_text, skill):
+        norm_sk = normalize_text(skill)
+        if norm_sk and norm_sk in job_text:
             matched_skills.append(skill)
 
     reasons = []

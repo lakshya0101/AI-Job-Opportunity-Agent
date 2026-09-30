@@ -13,10 +13,21 @@ env/
 .env
 .env.*
 
-# Local database
-*.db
+# Local database (ignore temporary DBs, track persistent data/jobs.db)
+*.tmp.db
+temp.db
 *.sqlite
 *.sqlite3
+!data/
+!data/jobs.db
+
+# Output artifacts
+output/
+*.xlsx
+*.html
+
+# Scratch scripts
+scratch/
 
 # Logs
 *.log

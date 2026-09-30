@@ -1,312 +1,371 @@
 from html import escape
-from typing import List
+from typing import List, Optional
 
+from src.collectors.base import CollectorStatus, SourceHealth
 from src.models.job import Job
 from src.reporting.report_builder import DailyReport
 
 
-def job_card(job: Job) -> str:
-    """Generate an HTML card for a single job."""
+def _badge(text: str, bg_color: str, text_color: str = "#ffffff") -> str:
+    """Helper to render inline badge chips."""
+    return f"""<span style="
+        display:inline-block;
+        padding:3px 8px;
+        font-size:11px;
+        font-weight:700;
+        border-radius:6px;
+        background:{bg_color};
+        color:{text_color};
+        margin-right:6px;
+        text-transform:uppercase;
+        letter-spacing:0.5px;
+    ">{escape(text)}</span>"""
 
+
+def job_card(job: Job) -> str:
+    """Generate a modern, responsive HTML card for a single job opportunity."""
     company = escape(job.company or "Company not listed")
     title = escape(job.title or "Role not listed")
     location = escape(job.location or "Location not listed")
 
-    work_mode = escape(
-        job.work_mode or "Not specified"
+    badges_html = ""
+    if getattr(job, "is_new", False):
+        badges_html += _badge("NEW", "#10b981")
+    if getattr(job, "is_updated", False):
+        badges_html += _badge("UPDATED", "#3b82f6")
+    if getattr(job, "is_urgent", False):
+        badges_html += _badge("URGENT", "#ef4444")
+
+    # Meta details
+    meta_rows = []
+    meta_rows.append(f"📍 <strong>Location:</strong> {location}")
+    if job.work_mode:
+        meta_rows.append(f"💼 <strong>Mode:</strong> {escape(job.work_mode)}")
+    if job.experience:
+        meta_rows.append(f"🎓 <strong>Experience:</strong> {escape(job.experience)}")
+    if job.eligibility:
+        meta_rows.append(f"📜 <strong>Eligibility:</strong> {escape(job.eligibility)}")
+    if job.compensation:
+        meta_rows.append(f"💰 <strong>Compensation:</strong> {escape(job.compensation)}")
+    if job.posting_date:
+        meta_rows.append(f"📅 <strong>Posted:</strong> {escape(job.posting_date)}")
+    if job.deadline:
+        meta_rows.append(f"⏰ <strong>Deadline:</strong> {escape(job.deadline)}")
+    if job.source:
+        meta_rows.append(f"🔎 <strong>Source:</strong> {escape(job.source)}")
+
+    meta_html = "<br>".join(meta_rows)
+
+    # Score breakdown details
+    score_breakdown = (
+        f"Role: {job.role_score:.0f}/30 | "
+        f"Skills: {job.skill_score:.1f}/30 | "
+        f"Location: {job.location_score:.0f}/20 | "
+        f"Experience: {job.experience_score:.0f}/10 | "
+        f"Freshness: {job.freshness_score:.0f}/10"
     )
 
-    experience = escape(
-        job.experience or "Not specified"
-    )
+    reason = escape(job.match_reason or "Profile qualification match")
 
-    compensation = escape(
-        job.compensation or "Not listed"
-    )
+    skills_html = ""
+    if job.skills:
+        skill_chips = "".join(
+            f"""<span style="
+                display:inline-block;
+                padding:2px 7px;
+                margin:2px;
+                font-size:11px;
+                background:#e0e7ff;
+                color:#3730a3;
+                border-radius:4px;
+            ">{escape(skill)}</span>"""
+            for skill in job.skills[:10]
+        )
+        skills_html = f"""<div style="margin-top:10px;"><strong>Skills:</strong> {skill_chips}</div>"""
 
-    source = escape(
-        job.source or "Source not listed"
-    )
-
-    reason = escape(
-        job.match_reason or "Profile match"
-    )
-
-    application_url = (
-        job.application_url
-        or job.careers_url
-        or "#"
-    )
-
-    application_url = escape(
-        application_url,
-        quote=True,
-    )
+    # Application link button
+    if job.application_url:
+        app_link = escape(job.application_url, quote=True)
+        btn_html = f"""<a href="{app_link}" style="
+            display:inline-block;
+            padding:9px 18px;
+            background:#1e40af;
+            color:#ffffff;
+            text-decoration:none;
+            border-radius:6px;
+            font-weight:600;
+            font-size:13px;
+        ">Apply Directly →</a>"""
+    elif job.careers_url:
+        careers_link = escape(job.careers_url, quote=True)
+        btn_html = f"""<a href="{careers_link}" style="
+            display:inline-block;
+            padding:9px 18px;
+            background:#374151;
+            color:#ffffff;
+            text-decoration:none;
+            border-radius:6px;
+            font-weight:600;
+            font-size:13px;
+        ">Company Careers Page →</a>"""
+    else:
+        btn_html = """<span style="font-size:12px; color:#9ca3af; font-style:italic;">Application link not available</span>"""
 
     return f"""
     <div style="
-        border:1px solid #e5e7eb;
-        border-radius:12px;
-        padding:18px;
-        margin-bottom:16px;
+        border:1px solid #e2e8f0;
+        border-radius:10px;
+        padding:16px;
+        margin-bottom:14px;
         background:#ffffff;
+        box-shadow:0 1px 3px rgba(0,0,0,0.05);
     ">
-
-        <div style="
-            font-size:18px;
-            font-weight:700;
-            color:#111827;
-            margin-bottom:6px;
-        ">
-            {title}
+        <div style="margin-bottom:6px;">
+            {badges_html}
+            <span style="font-size:17px; font-weight:700; color:#0f172a;">{title}</span>
         </div>
-
-        <div style="
-            font-size:15px;
-            font-weight:600;
-            color:#374151;
-            margin-bottom:10px;
-        ">
+        <div style="font-size:14px; font-weight:600; color:#475569; margin-bottom:10px;">
             {company}
         </div>
-
-        <div style="
-            font-size:14px;
-            line-height:1.7;
-            color:#4b5563;
-        ">
-            📍 {location}<br>
-            💼 {work_mode}<br>
-            🎓 {experience}<br>
-            💰 {compensation}<br>
-            🔎 Source: {source}
+        <div style="font-size:13px; line-height:1.6; color:#334155;">
+            {meta_html}
         </div>
-
+        {skills_html}
         <div style="
-            margin-top:12px;
+            margin-top:10px;
             padding:10px;
-            background:#f9fafb;
-            border-radius:8px;
-            font-size:13px;
-            color:#374151;
+            background:#f8fafc;
+            border-left:3px solid #3b82f6;
+            border-radius:4px;
+            font-size:12px;
+            color:#334155;
         ">
-            <strong>Match:</strong>
-            {job.match_score:.0f}/100
-            <br>
-            <strong>Why:</strong>
-            {reason}
+            <div><strong>Match Score:</strong> <span style="font-size:14px; font-weight:700; color:#1e40af;">{job.match_score:.1f}/100</span> ({score_breakdown})</div>
+            <div style="margin-top:4px;"><strong>Why:</strong> {reason}</div>
         </div>
-
-        <div style="margin-top:15px;">
-            <a href="{application_url}"
-               style="
-                   display:inline-block;
-                   padding:10px 16px;
-                   background:#111827;
-                   color:#ffffff;
-                   text-decoration:none;
-                   border-radius:7px;
-                   font-weight:600;
-                   font-size:14px;
-               ">
-                Apply Now →
-            </a>
+        <div style="margin-top:12px;">
+            {btn_html}
         </div>
-
     </div>
     """
 
 
 def render_jobs(
     jobs: List[Job],
-    empty_message: str = "No opportunities found.",
+    empty_message: str = "No opportunities in this category.",
 ) -> str:
-    """Render a list of jobs."""
-
+    """Render a list of job cards or a friendly fallback message."""
     if not jobs:
-        return f"""
-        <p style="
-            color:#6b7280;
-            font-size:14px;
-        ">
-            {empty_message}
-        </p>
-        """
+        return f"""<p style="color:#64748b; font-size:13px; font-style:italic; margin:8px 0 16px;">{empty_message}</p>"""
+    return "\n".join(job_card(job) for job in jobs)
 
-    return "\n".join(
-        job_card(job)
-        for job in jobs
-    )
+
+def render_source_health(source_health: List[SourceHealth]) -> str:
+    """Render the source health table."""
+    if not source_health:
+        return "<p style='color:#64748b; font-size:13px;'>No source health data available.</p>"
+
+    rows = []
+    for h in source_health:
+        source_name = escape(h.source)
+        status_val = h.status.value if isinstance(h.status, CollectorStatus) else str(h.status)
+
+        if status_val == "SUCCESS":
+            status_chip = """<span style="color:#059669; font-weight:700;">● SUCCESS</span>"""
+        elif status_val == "EMPTY":
+            status_chip = """<span style="color:#6b7280; font-weight:600;">○ EMPTY</span>"""
+        elif status_val == "FAILED":
+            status_chip = """<span style="color:#dc2626; font-weight:700;">✕ FAILED</span>"""
+        elif status_val == "NOT_IMPLEMENTED":
+            status_chip = """<span style="color:#9ca3af; font-style:italic;">NOT IMPLEMENTED</span>"""
+        else:
+            status_chip = escape(status_val)
+
+        err_detail = f"<br><small style='color:#dc2626;'>{escape(h.error)}</small>" if h.error else ""
+        dur_str = f"{h.duration_seconds:.2f}s" if h.duration_seconds > 0 else "—"
+
+        rows.append(f"""
+        <tr style="border-bottom:1px solid #f1f5f9; font-size:12px;">
+            <td style="padding:8px 10px; font-weight:600; color:#1e293b;">{source_name}</td>
+            <td style="padding:8px 10px;">{status_chip}{err_detail}</td>
+            <td style="padding:8px 10px; text-align:center; color:#334155;">{h.job_count}</td>
+            <td style="padding:8px 10px; text-align:right; color:#64748b;">{dur_str}</td>
+        </tr>
+        """)
+
+    return f"""
+    <table style="width:100%; border-collapse:collapse; background:#ffffff; border-radius:8px; overflow:hidden; border:1px solid #e2e8f0;">
+        <thead>
+            <tr style="background:#f8fafc; font-size:12px; color:#475569; text-align:left; border-bottom:1px solid #e2e8f0;">
+                <th style="padding:8px 10px;">Source</th>
+                <th style="padding:8px 10px;">Status</th>
+                <th style="padding:8px 10px; text-align:center;">Jobs</th>
+                <th style="padding:8px 10px; text-align:right;">Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            {"".join(rows)}
+        </tbody>
+    </table>
+    """
 
 
 def render_daily_report(
     report: DailyReport,
     report_date: str,
 ) -> str:
-    """Render the complete daily email."""
+    """Render the full daily HTML email report."""
+    summary = report.summary
 
-    return f"""
-<!DOCTYPE html>
+    empty_banner = ""
+    if report.total_jobs == 0:
+        empty_banner = """
+        <div style="background:#fef3c7; border:1px solid #f59e0b; border-radius:8px; padding:16px; margin-bottom:20px; color:#92400e; font-size:14px;">
+            <strong>Notice:</strong> No matching opportunities were found in this run based on configured criteria.
+        </div>
+        """
+
+    return f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>AI Job Opportunity Report</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Job Opportunity Report — {escape(report_date)}</title>
 </head>
-
 <body style="
     margin:0;
     padding:0;
-    background:#f3f4f6;
-    font-family:Arial, Helvetica, sans-serif;
+    background:#f1f5f9;
+    font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color:#0f172a;
 ">
 
-<div style="
-    max-width:760px;
-    margin:0 auto;
-    padding:24px;
-">
+<div style="max-width:740px; margin:0 auto; padding:20px;">
 
+    <!-- Header Header -->
     <div style="
-        background:#111827;
+        background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         color:#ffffff;
-        padding:28px;
-        border-radius:14px;
-        margin-bottom:20px;
+        padding:26px 24px;
+        border-radius:12px;
+        margin-bottom:18px;
     ">
-
-        <div style="
-            font-size:26px;
-            font-weight:700;
-            margin-bottom:8px;
-        ">
-            AI Job Opportunity Report
+        <div style="font-size:24px; font-weight:800; letter-spacing:-0.5px;">
+            🚀 AI Job Opportunity Report
         </div>
-
-        <div style="
-            font-size:14px;
-            opacity:0.85;
-        ">
-            {escape(report_date)}
+        <div style="font-size:13px; color:#94a3b8; margin-top:4px;">
+            {escape(report_date)} &bull; Automated Candidate Matching
         </div>
-
     </div>
 
+    {empty_banner}
 
+    <!-- Pipeline Summary Metrics -->
     <div style="
         background:#ffffff;
-        border-radius:12px;
-        padding:20px;
-        margin-bottom:20px;
+        border-radius:10px;
+        border:1px solid #e2e8f0;
+        padding:16px;
+        margin-bottom:22px;
     ">
-
-        <div style="
-            font-size:18px;
-            font-weight:700;
-            margin-bottom:15px;
-        ">
-            Daily Summary
+        <div style="font-size:14px; font-weight:700; color:#334155; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">
+            📊 Pipeline Summary
         </div>
-
-        <div style="
-            display:flex;
-            gap:20px;
-            font-size:14px;
-            color:#374151;
-        ">
-
-            <div>
-                <strong>{len(report.new_today)}</strong><br>
-                New Today
-            </div>
-
-            <div>
-                <strong>{len(report.urgent)}</strong><br>
-                Urgent
-            </div>
-
-            <div>
-                <strong>{report.total_jobs}</strong><br>
-                Matched
-            </div>
-
-        </div>
-
+        <table style="width:100%; text-align:center; font-size:12px;">
+            <tr>
+                <td style="padding:6px;"><strong style="font-size:18px; color:#0f172a;">{summary.collected}</strong><br><span style="color:#64748b;">Collected</span></td>
+                <td style="padding:6px;"><strong style="font-size:18px; color:#0f172a;">{summary.deduplicated}</strong><br><span style="color:#64748b;">Unique</span></td>
+                <td style="padding:6px;"><strong style="font-size:18px; color:#10b981;">{summary.new}</strong><br><span style="color:#64748b;">New</span></td>
+                <td style="padding:6px;"><strong style="font-size:18px; color:#3b82f6;">{summary.updated}</strong><br><span style="color:#64748b;">Updated</span></td>
+                <td style="padding:6px;"><strong style="font-size:18px; color:#6366f1;">{summary.matched}</strong><br><span style="color:#64748b;">Matched</span></td>
+                <td style="padding:6px;"><strong style="font-size:18px; color:#059669;">{report.total_jobs}</strong><br><span style="color:#64748b;">Reportable</span></td>
+            </tr>
+        </table>
     </div>
 
-
-    <div style="
-        font-size:22px;
-        font-weight:700;
-        margin:24px 0 12px;
-        color:#111827;
-    ">
+    <!-- Section: Apply First -->
+    <div style="font-size:19px; font-weight:800; color:#0f172a; margin:22px 0 10px;">
         🔥 Apply First
     </div>
+    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+        Highest objective matches based on configured role, skill, location, experience, and freshness criteria.
+    </div>
+    {render_jobs(report.apply_first, "No high-priority opportunities found today.")}
 
-    {render_jobs(
-        report.apply_first,
-        "No high-priority opportunities found today."
-    )}
-
-
-    <div style="
-        font-size:22px;
-        font-weight:700;
-        margin:30px 0 12px;
-        color:#111827;
-    ">
+    <!-- Section: New Today -->
+    <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
         🆕 New Today
     </div>
-
-    {render_jobs(
-        report.new_today,
-        "No newly discovered opportunities today."
-    )}
-
-
-    <div style="
-        font-size:22px;
-        font-weight:700;
-        margin:30px 0 12px;
-        color:#111827;
-    ">
-        ⏰ Urgent
+    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+        Jobs verified to be posted today by official company sources.
     </div>
+    {render_jobs(report.new_today, "No jobs posted today.")}
 
-    {render_jobs(
-        report.urgent,
-        "No urgent deadlines detected."
-    )}
-
-
-    <div style="
-        font-size:22px;
-        font-weight:700;
-        margin:30px 0 12px;
-        color:#111827;
-    ">
-        🟢 Fresh Active Roles
+    <!-- Section: Updated -->
+    <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
+        🔄 Meaningfully Updated
     </div>
+    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+        Existing openings with meaningful changes to compensation, description, skills, or application details.
+    </div>
+    {render_jobs(report.updated, "No updated job listings in this run.")}
 
-    {render_jobs(
-        report.fresh_active,
-        "No additional fresh active opportunities."
-    )}
+    <!-- Section: Urgent -->
+    <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
+        ⏰ Urgent &bull; Deadline Soon
+    </div>
+    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+        Opportunities with verified application deadlines within 48 hours.
+    </div>
+    {render_jobs(report.urgent, "No urgent deadlines approaching.")}
 
+    <!-- Section: Fresh & Active -->
+    <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
+        🟢 Fresh & Active
+    </div>
+    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+        Active openings posted within the last 1–7 days.
+    </div>
+    {render_jobs(report.fresh_active, "No additional fresh active roles found.")}
 
+    <!-- Section: Remote India -->
+    <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
+        🌐 Remote India Opportunities
+    </div>
+    {render_jobs(report.remote_india, "No remote opportunities found today.")}
+
+    <!-- Section: Business Analyst -->
+    <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
+        📈 Business & BI Analyst Roles
+    </div>
+    {render_jobs(report.business_analyst, "No business analyst opportunities found today.")}
+
+    <!-- Section: Other Strong Matches -->
+    <div style="font-size:19px; font-weight:800; color:#0f172a; margin:26px 0 10px;">
+        ⭐ Other Strong Matches
+    </div>
+    {render_jobs(report.other_strong_matches, "No other strong matches found.")}
+
+    <!-- Section: Source Health -->
+    <div style="font-size:19px; font-weight:800; color:#0f172a; margin:28px 0 10px;">
+        📡 Source Health & Status
+    </div>
+    {render_source_health(report.source_health)}
+
+    <!-- Footer -->
     <div style="
         margin-top:35px;
-        padding:18px;
+        padding-top:18px;
+        border-top:1px solid #e2e8f0;
         text-align:center;
-        color:#6b7280;
-        font-size:12px;
+        color:#94a3b8;
+        font-size:11px;
     ">
-        Automatically generated by
-        <strong>AI Job Opportunity Agent</strong>.
+        Generated automatically by <strong>AI Job Opportunity Agent</strong>.<br>
+        Candidate: B.Tech CSE (Data Science) &bull; 0–2 YOE &bull; Delhi-NCR / Bangalore / Remote India
     </div>
 
 </div>
 
 </body>
-</html>
-"""
+</html>"""

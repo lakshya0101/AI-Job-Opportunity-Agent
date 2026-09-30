@@ -241,6 +241,98 @@ sources:
       platform: "greenhouse"
       identifier: "arcanaanalytics"
 
+    - name: "Groww"
+      platform: "greenhouse"
+      identifier: "groww"
+
+    - name: "InMobi"
+      platform: "greenhouse"
+      identifier: "inmobi"
+
+    - name: "Observe.ai"
+      platform: "greenhouse"
+      identifier: "observeai"
+
+    - name: "Slice"
+      platform: "greenhouse"
+      identifier: "slice"
+
+    - name: "Clear"
+      platform: "greenhouse"
+      identifier: "clear"
+
+    - name: "DevRev"
+      platform: "greenhouse"
+      identifier: "devrev"
+
+    - name: "Druva"
+      platform: "greenhouse"
+      identifier: "druva"
+
+    - name: "Glance"
+      platform: "greenhouse"
+      identifier: "glance"
+
+    - name: "HackerRank"
+      platform: "greenhouse"
+      identifier: "hackerrank"
+
+    - name: "HighRadius"
+      platform: "greenhouse"
+      identifier: "highradius"
+
+    - name: "Sigmoid"
+      platform: "greenhouse"
+      identifier: "sigmoid"
+
+    - name: "Scale AI"
+      platform: "greenhouse"
+      identifier: "scaleai"
+
+    - name: "Together AI"
+      platform: "greenhouse"
+      identifier: "togetherai"
+
+    - name: "Anthropic"
+      platform: "greenhouse"
+      identifier: "anthropic"
+
+    - name: "Zenoti"
+      platform: "greenhouse"
+      identifier: "zenoti"
+
+    - name: "CRED"
+      platform: "lever"
+      identifier: "cred"
+
+    - name: "FamPay"
+      platform: "lever"
+      identifier: "fampay"
+
+    - name: "Fi Money"
+      platform: "lever"
+      identifier: "fi"
+
+    - name: "Hevo Data"
+      platform: "lever"
+      identifier: "hevodata"
+
+    - name: "Meesho"
+      platform: "lever"
+      identifier: "meesho"
+
+    - name: "Mindtickle"
+      platform: "lever"
+      identifier: "mindtickle"
+
+    - name: "Porter"
+      platform: "lever"
+      identifier: "porter"
+
+    - name: "Zeta"
+      platform: "lever"
+      identifier: "zeta"
+
   prioritize_official_application: true
 
 # ------------------------------------------------------------

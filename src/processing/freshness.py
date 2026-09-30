@@ -111,10 +111,20 @@ def classify_freshness(job: Job) -> str:
 
 def is_reportable(job: Job) -> bool:
     """
-    Decide whether a job should appear in the daily report.
+    Decide whether a job should appear in the daily report based on freshness and score.
+    
+    Rules:
+    - EXPIRED: False
+    - NEW_TODAY / FRESH (0-3 days): True
+    - ACTIVE (4-7 days): True if match_score >= 70
+    - OLDER_ACTIVE (8-14 days): True if match_score >= 80
+    - OLDER (>14 days): True if match_score >= 90
+    - UNKNOWN (no posting date): True if is_new and match_score >= 70, or match_score >= 80
     """
-
     category = classify_freshness(job)
+
+    if category == "EXPIRED":
+        return False
 
     if category in {"NEW_TODAY", "FRESH"}:
         return True
@@ -122,49 +132,47 @@ def is_reportable(job: Job) -> bool:
     if category == "ACTIVE" and job.match_score >= 70:
         return True
 
-    if category == "OLDER_ACTIVE" and job.match_score >= 85:
+    if category == "OLDER_ACTIVE" and job.match_score >= 80:
         return True
+
+    if category == "OLDER" and job.match_score >= 90:
+        return True
+
+    if category == "UNKNOWN":
+        if job.is_new and job.match_score >= 70:
+            return True
+        if job.match_score >= 80:
+            return True
 
     return False
 
+
 def mark_freshness(job: Job) -> Job:
     """
-    Update job flags based on freshness.
+    Update job urgency flag based on deadline without modifying is_new/is_updated.
+    
+    Architectural Rule:
+    job.is_new and job.is_updated represent system discovery state (change detection).
+    Freshness classification (NEW_TODAY, FRESH, etc.) is derived from posting dates.
+    These are independent concepts and is_new is NOT overwritten here.
     """
-
-    category = classify_freshness(job)
-
     job.is_urgent = False
 
-    if category == "NEW_TODAY":
-        job.is_new = True
-
-    elif category == "FRESH":
-        job.is_new = True
-
-    elif category in {"ACTIVE", "OLDER_ACTIVE"}:
-        job.is_new = False
-
-    elif category == "EXPIRED":
-        job.is_new = False
-
-    # Deadline within 2 days is considered urgent.
+    # Deadline within 2 days (and in future) is considered urgent
     if job.deadline:
         deadline = parse_date(job.deadline)
-
         if deadline:
             now = datetime.now(timezone.utc)
-            days_remaining = (deadline - now).days
-
-            if 0 <= days_remaining <= 2:
+            diff_seconds = (deadline - now).total_seconds()
+            if 0 <= diff_seconds <= 2 * 86400:
                 job.is_urgent = True
 
     return job
 
 
-def process_freshness(jobs):
+def process_freshness(jobs: list[Job]) -> list[Job]:
     """
-    Apply freshness classification and flags to all jobs.
+    Apply freshness marks (such as urgency) to all jobs.
     """
-
     return [mark_freshness(job) for job in jobs]
+

@@ -167,3 +167,110 @@ def test_mocked_end_to_end_email_construction(tmp_path, monkeypatch):
         assert "01 Oct 2026" in payload["subject"]
         assert "OpenAI" in payload["html"]
         assert payload["attachments"][0]["filename"] == "ai_jobs_01_Oct_2026.xlsx"
+
+
+def test_sender_fallback_explicit_valid_sender(monkeypatch):
+    """1. Explicit valid sender parameter takes top precedence."""
+    monkeypatch.setenv("RESEND_API_KEY", "re_dummy_key")
+    monkeypatch.setenv("EMAIL_SENDER", "env_sender@custom.domain")
+
+    with patch("requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "msg_test"}
+        mock_post.return_value = mock_response
+
+        send_email(
+            recipient="test@example.com",
+            subject="Test",
+            html="<p>Test</p>",
+            sender="explicit_sender@custom.domain",
+        )
+
+        payload = mock_post.call_args[1]["json"]
+        assert payload["from"] == "explicit_sender@custom.domain"
+
+
+def test_sender_fallback_valid_env_value(monkeypatch):
+    """2. EMAIL_SENDER valid environment value is used when no explicit sender is passed."""
+    monkeypatch.setenv("RESEND_API_KEY", "re_dummy_key")
+    monkeypatch.setenv("EMAIL_SENDER", "env_sender@custom.domain")
+
+    with patch("requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "msg_test"}
+        mock_post.return_value = mock_response
+
+        send_email(
+            recipient="test@example.com",
+            subject="Test",
+            html="<p>Test</p>",
+        )
+
+        payload = mock_post.call_args[1]["json"]
+        assert payload["from"] == "env_sender@custom.domain"
+
+
+def test_sender_fallback_empty_string_env(monkeypatch):
+    """3. EMAIL_SENDER="" empty string falls back to DEFAULT_SENDER (onboarding@resend.dev)."""
+    monkeypatch.setenv("RESEND_API_KEY", "re_dummy_key")
+    monkeypatch.setenv("EMAIL_SENDER", "")
+
+    with patch("requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "msg_test"}
+        mock_post.return_value = mock_response
+
+        send_email(
+            recipient="test@example.com",
+            subject="Test",
+            html="<p>Test</p>",
+        )
+
+        payload = mock_post.call_args[1]["json"]
+        assert payload["from"] == "onboarding@resend.dev"
+
+
+def test_sender_fallback_whitespace_env(monkeypatch):
+    """4. EMAIL_SENDER="   " whitespace-only string falls back to DEFAULT_SENDER."""
+    monkeypatch.setenv("RESEND_API_KEY", "re_dummy_key")
+    monkeypatch.setenv("EMAIL_SENDER", "   \t  ")
+
+    with patch("requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "msg_test"}
+        mock_post.return_value = mock_response
+
+        send_email(
+            recipient="test@example.com",
+            subject="Test",
+            html="<p>Test</p>",
+            sender="   ",
+        )
+
+        payload = mock_post.call_args[1]["json"]
+        assert payload["from"] == "onboarding@resend.dev"
+
+
+def test_sender_fallback_missing_env(monkeypatch):
+    """5. When EMAIL_SENDER is unset and no sender is provided, falls back to DEFAULT_SENDER."""
+    monkeypatch.setenv("RESEND_API_KEY", "re_dummy_key")
+    monkeypatch.delenv("EMAIL_SENDER", raising=False)
+
+    with patch("requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"id": "msg_test"}
+        mock_post.return_value = mock_response
+
+        send_email(
+            recipient="test@example.com",
+            subject="Test",
+            html="<p>Test</p>",
+        )
+
+        payload = mock_post.call_args[1]["json"]
+        assert payload["from"] == "onboarding@resend.dev"

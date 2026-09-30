@@ -53,7 +53,8 @@ def send_email(
     if not api_key or not api_key.strip():
         raise RuntimeError("RESEND_API_KEY environment variable is not set or empty.")
 
-    sender_email = sender or os.getenv("EMAIL_SENDER", DEFAULT_SENDER)
+    sender_env = (os.getenv("EMAIL_SENDER") or "").strip()
+    sender_email = (sender or "").strip() or sender_env or DEFAULT_SENDER
 
     payload: Dict[str, Any] = {
         "from": sender_email,
